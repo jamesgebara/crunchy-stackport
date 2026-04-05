@@ -40,7 +40,7 @@ def list_buckets():
     buckets = []
 
     for b in response.get("Buckets", []):
-        name = b["BucketName"]
+        name = b["Name"]
         obj_count, total_size = _get_bucket_stats(name)
 
         versioning = "Disabled"
