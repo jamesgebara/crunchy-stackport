@@ -7,5 +7,8 @@ AWS_SECRET_ACCESS_KEY: str = os.environ.get("AWS_SECRET_ACCESS_KEY", "test")
 STACKPORT_PORT: int = int(os.environ.get("STACKPORT_PORT", "8080"))
 STACKPORT_SERVICES: str = os.environ.get(
     "STACKPORT_SERVICES",
-    "s3,sqs,sns,dynamodb,lambda,iam,logs,ssm,secretsmanager,kinesis,events,ec2,route53,kms,cloudformation,stepfunctions,rds,ecs",
+    "s3,sqs,sns,dynamodb,lambda,iam,logs,ssm,secretsmanager,kinesis,events,ec2,"
+    "route53,kms,cloudformation,stepfunctions,rds,ecs,monitoring,ses,acm,wafv2,"
+    "ecr,elasticache,glue,athena,apigateway,firehose,cognito-idp,cognito-identity,"
+    "elasticmapreduce,elasticloadbalancing,elasticfilesystem,cloudfront,appsync",
 )
