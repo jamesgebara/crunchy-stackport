@@ -1,9 +1,30 @@
 [project]
 name = "stackport"
 version = "0.1.0"
-description = "Universal AWS emulator browser"
+description = "Universal AWS resource browser for local emulators"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
+authors = [{name = "Davi Reis Vieira"}]
+keywords = ["aws", "localstack", "s3", "browser", "devtools", "emulator"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = ["fastapi>=0.115.0", "uvicorn>=0.30.0", "boto3>=1.35.0"]
+
+[project.urls]
+Homepage = "https://github.com/DaviReisVieira/stackport"
+Repository = "https://github.com/DaviReisVieira/stackport"
+Issues = "https://github.com/DaviReisVieira/stackport/issues"
 
 [build-system]
 requires = ["setuptools>=68.0"]
@@ -11,6 +32,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["backend*"]
+
+[tool.setuptools.package-data]
+backend = ["../ui/dist/**/*"]
 
 [project.scripts]
 stackport = "backend.main:cli"
