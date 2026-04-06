@@ -1,33 +1,74 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from backend.aws_client import get_client
 from backend.cache import cache
 from backend.routes.stats import SERVICE_REGISTRY, _METHOD_KWARGS, _count_items
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 # Maps (service, resource_type) -> (boto3_service, method, id_param, response_key)
 # response_key=None means return the full response (minus ResponseMetadata)
 DESCRIBE_REGISTRY: dict[tuple[str, str], tuple[str, str, str, str | None]] = {
+    # Storage
     ("s3", "buckets"): ("s3", "list_objects_v2", "Bucket", "Contents"),
-    ("dynamodb", "tables"): ("dynamodb", "describe_table", "TableName", "Table"),
+    # Compute
     ("lambda", "functions"): ("lambda", "get_function", "FunctionName", None),
-    ("sqs", "queues"): ("sqs", "get_queue_attributes", "QueueUrl", "Attributes"),
-    ("secretsmanager", "secrets"): ("secretsmanager", "describe_secret", "SecretId", None),
+    ("ecs", "clusters"): ("ecs", "describe_clusters", "clusters", "clusters"),
+    ("ecs", "task_definitions"): ("ecs", "describe_task_definition", "taskDefinition", "taskDefinition"),
+    # Database
+    ("dynamodb", "tables"): ("dynamodb", "describe_table", "TableName", "Table"),
     ("rds", "db_instances"): ("rds", "describe_db_instances", "DBInstanceIdentifier", "DBInstances"),
     ("rds", "db_clusters"): ("rds", "describe_db_clusters", "DBClusterIdentifier", "DBClusters"),
+    ("elasticache", "cache_clusters"): ("elasticache", "describe_cache_clusters", "CacheClusterId", None),
+    # Messaging
+    ("sqs", "queues"): ("sqs", "get_queue_attributes", "QueueUrl", "Attributes"),
     ("sns", "topics"): ("sns", "get_topic_attributes", "TopicArn", "Attributes"),
     ("kinesis", "streams"): ("kinesis", "describe_stream", "StreamName", "StreamDescription"),
-    ("logs", "log_groups"): ("logs", "describe_log_groups", "logGroupNamePrefix", "logGroups"),
-    ("stepfunctions", "state_machines"): ("stepfunctions", "describe_state_machine", "stateMachineArn", None),
-    ("ecr", "repositories"): ("ecr", "describe_repositories", "repositoryNames", "repositories"),
-    ("acm", "certificates"): ("acm", "describe_certificate", "CertificateArn", "Certificate"),
+    ("firehose", "delivery_streams"): ("firehose", "describe_delivery_stream", "DeliveryStreamName", "DeliveryStreamDescription"),
+    ("events", "rules"): ("events", "describe_rule", "Name", None),
+    ("events", "event_buses"): ("events", "describe_event_bus", "Name", None),
+    # Security & Identity
+    ("iam", "roles"): ("iam", "get_role", "RoleName", "Role"),
+    ("iam", "users"): ("iam", "get_user", "UserName", "User"),
+    ("iam", "policies"): ("iam", "get_policy", "PolicyArn", "Policy"),
+    ("secretsmanager", "secrets"): ("secretsmanager", "describe_secret", "SecretId", None),
     ("kms", "keys"): ("kms", "describe_key", "KeyId", "KeyMetadata"),
-    ("route53", "hosted_zones"): ("route53", "get_hosted_zone", "Id", "HostedZone"),
+    ("acm", "certificates"): ("acm", "describe_certificate", "CertificateArn", "Certificate"),
+    ("cognito-idp", "user_pools"): ("cognito-idp", "describe_user_pool", "UserPoolId", "UserPool"),
+    ("cognito-identity", "identity_pools"): ("cognito-identity", "describe_identity_pool", "IdentityPoolId", None),
+    # Management
+    ("logs", "log_groups"): ("logs", "describe_log_groups", "logGroupNamePrefix", "logGroups"),
+    ("ssm", "parameters"): ("ssm", "get_parameter", "Name", "Parameter"),
     ("cloudformation", "stacks"): ("cloudformation", "describe_stacks", "StackName", "Stacks"),
+    ("stepfunctions", "state_machines"): ("stepfunctions", "describe_state_machine", "stateMachineArn", None),
+    ("monitoring", "alarms"): ("cloudwatch", "describe_alarms", "AlarmNames", "MetricAlarms"),
+    ("monitoring", "dashboards"): ("cloudwatch", "get_dashboard", "DashboardName", None),
+    # Networking & CDN
+    ("route53", "hosted_zones"): ("route53", "get_hosted_zone", "Id", "HostedZone"),
+    ("cloudfront", "distributions"): ("cloudfront", "get_distribution", "Id", "Distribution"),
+    ("elasticloadbalancing", "load_balancers"): ("elbv2", "describe_load_balancers", "LoadBalancerArns", "LoadBalancers"),
+    # EC2
     ("ec2", "instances"): ("ec2", "describe_instances", "InstanceIds", "Reservations"),
     ("ec2", "vpcs"): ("ec2", "describe_vpcs", "VpcIds", "Vpcs"),
-    ("elasticache", "cache_clusters"): ("elasticache", "describe_cache_clusters", "CacheClusterId", None),
+    ("ec2", "subnets"): ("ec2", "describe_subnets", "SubnetIds", "Subnets"),
+    ("ec2", "security_groups"): ("ec2", "describe_security_groups", "GroupIds", "SecurityGroups"),
+    ("ec2", "volumes"): ("ec2", "describe_volumes", "VolumeIds", "Volumes"),
+    ("elasticfilesystem", "file_systems"): ("efs", "describe_file_systems", "FileSystemId", "FileSystems"),
+    # Containers
+    ("ecr", "repositories"): ("ecr", "describe_repositories", "repositoryNames", "repositories"),
+    # Analytics & ETL
+    ("glue", "databases"): ("glue", "get_database", "Name", "Database"),
+    ("glue", "crawlers"): ("glue", "get_crawler", "Name", "Crawler"),
+    ("athena", "workgroups"): ("athena", "get_work_group", "WorkGroup", "WorkGroup"),
+    # API
+    ("apigateway", "apis"): ("apigatewayv2", "get_api", "ApiId", None),
+    ("appsync", "graphql_apis"): ("appsync", "get_graphql_api", "apiId", "graphqlApi"),
+    # EMR
+    ("elasticmapreduce", "clusters"): ("emr", "describe_cluster", "ClusterId", "Cluster"),
 }
 
 # Known ID field names for extracting a resource identifier from list results
@@ -132,6 +173,7 @@ def list_resources(service: str):
                 items = items.get("Items", []) or []
             resources[resource_type] = [_summarize_item(item) for item in items]
         except Exception:
+            logger.debug("Failed to list %s/%s", service, resource_type, exc_info=True)
             resources[resource_type] = []
 
     result = {"service": service, "resources": resources}
@@ -156,7 +198,10 @@ def get_resource_detail(service: str, res_type: str, res_id: str):
     boto3_service, method_name, id_param, response_key = lookup
 
     # Some APIs take list parameters (e.g., InstanceIds, VpcIds)
-    _LIST_PARAMS = {"InstanceIds", "VpcIds", "SubnetIds", "GroupIds", "VolumeIds", "repositoryNames"}
+    _LIST_PARAMS = {
+        "InstanceIds", "VpcIds", "SubnetIds", "GroupIds", "VolumeIds",
+        "repositoryNames", "clusters", "AlarmNames", "LoadBalancerArns",
+    }
 
     try:
         client = get_client(boto3_service)
@@ -186,6 +231,7 @@ def get_resource_detail(service: str, res_type: str, res_id: str):
         cache.set(cache_key, result, ttl=5)
         return result
     except Exception as exc:
+        logger.warning("Failed to get detail for %s/%s/%s", service, res_type, res_id, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

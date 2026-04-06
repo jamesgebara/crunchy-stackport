@@ -1,47 +1,120 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useFetch } from '../hooks/useFetch'
 import { fetchStats, fetchResources, fetchResourceDetail } from '../lib/api'
-import type { StatsResponse } from '../lib/types'
+import type { StatsResponse, ResourceListResponse, ResourceDetailResponse } from '../lib/types'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/EmptyState'
 import { JsonViewer } from '@/components/JsonViewer'
 import { SERVICE_VIEWS } from '@/components/service-views'
 import { getServiceIcon } from '@/lib/service-icons'
-import { FolderOpen } from 'lucide-react'
+import { FolderOpen, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100]
+
+function PaginationBar({
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  total: number
+  page: number
+  pageSize: number
+  onPageChange: (p: number) => void
+  onPageSizeChange: (s: number) => void
+}) {
+  const totalPages = Math.ceil(total / pageSize)
+  if (total <= PAGE_SIZE_OPTIONS[0]) return null
+
+  return (
+    <div className="flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground">
+      <div className="flex items-center gap-2">
+        <span>Show</span>
+        <Select value={String(pageSize)} onValueChange={(v) => { onPageSizeChange(Number(v)); onPageChange(0) }}>
+          <SelectTrigger className="h-7 w-16 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((s) => (
+              <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span>{total} total</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span>Page {page + 1} of {totalPages}</span>
+        <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === 0} onClick={() => onPageChange(page - 1)}>
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page >= totalPages - 1} onClick={() => onPageChange(page + 1)}>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 export default function ResourceBrowser() {
   const { service } = useParams<{ service?: string }>()
   const statsFetcher = useCallback(() => fetchStats(), [])
   const { data: stats } = useFetch<StatsResponse>(statsFetcher, 10000)
   const [resources, setResources] = useState<Record<string, unknown[]> | null>(null)
-  const [detail, setDetail] = useState<{ service: string; type: string; id: string; detail: unknown } | null>(null)
+  const [detail, setDetail] = useState<ResourceDetailResponse | null>(null)
   const [loadingResources, setLoadingResources] = useState(false)
+  const [resourceError, setResourceError] = useState<string | null>(null)
+  const [pages, setPages] = useState<Record<string, number>>({})
+  const [pageSize, setPageSize] = useState(25)
 
   useEffect(() => {
     if (!service) {
       setResources(null)
+      setResourceError(null)
       return
     }
     setLoadingResources(true)
+    setResourceError(null)
+    setPages({})
     fetchResources(service)
-      .then((data) => setResources(data.resources ?? {}))
-      .catch(() => setResources(null))
+      .then((data: ResourceListResponse) => setResources(data.resources ?? {}))
+      .catch((e) => {
+        setResources(null)
+        setResourceError(e instanceof Error ? e.message : 'Failed to load resources')
+      })
       .finally(() => setLoadingResources(false))
   }, [service])
 
   const openDetail = async (svc: string, type: string, id: string) => {
     try {
-      const data = await fetchResourceDetail(svc, type, id)
+      const data = await fetchResourceDetail(svc, type, id) as ResourceDetailResponse
       setDetail(data)
-    } catch {
-      setDetail(null)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load detail'
+      toast.error('Failed to load resource detail', { description: msg })
     }
+  }
+
+  const retryResources = () => {
+    if (!service) return
+    setLoadingResources(true)
+    setResourceError(null)
+    fetchResources(service)
+      .then((data: ResourceListResponse) => setResources(data.resources ?? {}))
+      .catch((e) => {
+        setResources(null)
+        setResourceError(e instanceof Error ? e.message : 'Failed to load resources')
+      })
+      .finally(() => setLoadingResources(false))
   }
 
   const services = stats ? Object.entries(stats.services) : []
@@ -106,6 +179,20 @@ export default function ResourceBrowser() {
           </div>
         )}
 
+        {/* Error state */}
+        {service && !SERVICE_VIEWS[service] && !loadingResources && resourceError && (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center space-y-3">
+              <AlertTriangle className="h-8 w-8 text-destructive mx-auto" />
+              <p className="text-sm text-muted-foreground">{resourceError}</p>
+              <Button variant="outline" size="sm" onClick={retryResources}>
+                <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         {service && !SERVICE_VIEWS[service] && resources && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
@@ -113,46 +200,62 @@ export default function ResourceBrowser() {
               <h2 className="text-xl font-bold">{service}</h2>
             </div>
 
-            {Object.entries(resources).map(([type, items]) => (
-              <Card key={type}>
-                <CardHeader className="p-4 pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium">{type}</CardTitle>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {Array.isArray(items) ? items.length : 0} items
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {Array.isArray(items) && items.length === 0 && (
-                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">Empty</div>
-                  )}
-                  {Array.isArray(items) && items.length > 0 && (
-                    <Table>
-                      <TableBody>
-                        {(items as Record<string, unknown>[]).map((item, i) => (
-                          <TableRow
-                            key={i}
-                            className="cursor-pointer"
-                            onClick={() => openDetail(service, type, String(item.id ?? i))}
-                          >
-                            <TableCell className="text-primary font-mono font-medium text-xs">
-                              {String(item.id ?? i)}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-xs truncate max-w-md">
-                              {Object.entries(item)
-                                .filter(([k]) => k !== 'id')
-                                .map(([k, v]) => `${k}: ${v}`)
-                                .join(' | ')}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+            {Object.entries(resources).map(([type, items]) => {
+              const arr = Array.isArray(items) ? items as Record<string, unknown>[] : []
+              const currentPage = pages[type] ?? 0
+              const paginatedItems = arr.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+
+              return (
+                <Card key={type}>
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-medium">{type}</CardTitle>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {arr.length} items
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {arr.length === 0 && (
+                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">Empty</div>
+                    )}
+                    {arr.length > 0 && (
+                      <>
+                        <Table>
+                          <TableBody>
+                            {paginatedItems.map((item, i) => (
+                              <TableRow
+                                key={i}
+                                className="cursor-pointer"
+                                onClick={() => openDetail(service, type, String(item.id ?? i))}
+                              >
+                                <TableCell className="text-primary font-mono font-medium text-xs">
+                                  {String(item.id ?? i)}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-xs truncate max-w-md">
+                                  {Object.entries(item)
+                                    .filter(([k]) => k !== 'id')
+                                    .slice(0, 4)
+                                    .map(([k, v]) => `${k}: ${typeof v === 'string' && v.length > 40 ? v.slice(0, 40) + '...' : v}`)
+                                    .join(' | ')}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        <PaginationBar
+                          total={arr.length}
+                          page={currentPage}
+                          pageSize={pageSize}
+                          onPageChange={(p) => setPages((prev) => ({ ...prev, [type]: p }))}
+                          onPageSizeChange={setPageSize}
+                        />
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         )}
 

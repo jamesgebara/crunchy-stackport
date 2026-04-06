@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
 from backend.aws_client import get_client
 from backend.cache import cache
 from backend.config import AWS_REGION
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -26,7 +30,7 @@ def _get_bucket_stats(bucket_name: str) -> tuple[int, int]:
                 obj_count += 1
                 total_size += obj.get("Size", 0)
     except Exception:
-        pass
+        logger.debug("Failed to get bucket stats for %s", bucket_name, exc_info=True)
 
     result = (obj_count, total_size)
     cache.set(cache_key, result, ttl=30)
@@ -48,21 +52,21 @@ def list_buckets():
             ver = s3.get_bucket_versioning(Bucket=name)
             versioning = ver.get("Status", "Disabled")
         except Exception:
-            pass
+            logger.debug("Failed to get versioning for %s", name, exc_info=True)
 
         encryption = "Disabled"
         try:
             s3.get_bucket_encryption(Bucket=name)
             encryption = "Enabled"
         except Exception:
-            pass
+            logger.debug("Failed to get encryption for %s", name, exc_info=True)
 
         tags: dict[str, str] = {}
         try:
             tag_resp = s3.get_bucket_tagging(Bucket=name)
             tags = {t["Key"]: t["Value"] for t in tag_resp.get("TagSet", [])}
         except Exception:
-            pass
+            logger.debug("Failed to get tags for %s", name, exc_info=True)
 
         buckets.append(
             {
@@ -148,7 +152,7 @@ def get_object_detail(
         tag_resp = s3.get_object_tagging(Bucket=name, Key=key)
         tags = {t["Key"]: t["Value"] for t in tag_resp.get("TagSet", [])}
     except Exception:
-        pass
+        logger.debug("Failed to get object tags for %s/%s", name, key, exc_info=True)
 
     return {
         "bucket": name,

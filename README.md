@@ -2,9 +2,9 @@
 
 Universal AWS resource browser for local emulators. Works with MiniStack, LocalStack, Moto, or any AWS-compatible endpoint.
 
-- Browse S3 buckets, files, and folders with search and pagination
-- Inspect resources across 18+ AWS services
-- Download S3 objects directly
+- Browse and inspect resources across **35 AWS services**
+- S3 file browser with folder navigation, search, pagination, and download
+- Dashboard with service health, resource counts, and auto-refresh
 - Single Docker image, zero AWS dependencies
 
 ## Quick Start
@@ -23,6 +23,8 @@ pip install .
 AWS_ENDPOINT_URL=http://localhost:4566 stackport
 ```
 
+Requires a running AWS-compatible emulator (MiniStack, LocalStack, Moto, etc.).
+
 ## Configuration
 
 | Variable | Default | Description |
@@ -32,11 +34,13 @@ AWS_ENDPOINT_URL=http://localhost:4566 stackport
 | `AWS_ACCESS_KEY_ID` | `test` | AWS access key |
 | `AWS_SECRET_ACCESS_KEY` | `test` | AWS secret key |
 | `STACKPORT_PORT` | `8080` | StackPort server port |
-| `STACKPORT_SERVICES` | `s3,sqs,dynamodb,...` | Services to probe |
+| `STACKPORT_SERVICES` | *(35 services)* | Comma-separated services to probe |
 
-## Supported Services
+## Supported Services (35)
 
-S3, SQS, SNS, DynamoDB, Lambda, IAM, CloudWatch Logs, SSM, Secrets Manager, Kinesis, EventBridge, EC2, Route 53, KMS, CloudFormation, Step Functions, RDS, ECS
+ACM, API Gateway, AppSync, Athena, CloudFormation, CloudFront, Cognito (IDP + Identity), DynamoDB, EC2, ECR, ECS, ElastiCache, EFS, ELB, EMR, EventBridge, Firehose, Glue, IAM, Kinesis, KMS, Lambda, CloudWatch Logs, CloudWatch Monitoring, RDS, Route 53, S3, Secrets Manager, SES, SNS, SQS, SSM, Step Functions, WAFv2
+
+S3 has a dedicated file browser. All other services use the generic resource table with detail view.
 
 ## Development
 
@@ -47,6 +51,9 @@ AWS_ENDPOINT_URL=http://localhost:4566 python -m backend.main
 
 # Frontend
 cd ui && npm install && npm run dev
+
+# Build UI for production
+cd ui && npm run build
 ```
 
 ## License

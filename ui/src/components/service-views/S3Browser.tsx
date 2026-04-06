@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchS3Buckets, fetchS3Objects, fetchS3Object, getS3DownloadUrl } from '@/lib/api'
+import type { S3Bucket, S3File, S3ObjectsResponse, S3ObjectDetail } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,47 +36,6 @@ import {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 
-interface S3Bucket {
-  name: string
-  created: string
-  region: string
-  object_count: number
-  total_size: number
-  versioning: string
-  encryption: string
-  tags: Record<string, string>
-}
-
-interface S3File {
-  key: string
-  name: string
-  size: number
-  content_type: string
-  etag: string
-  last_modified: string
-}
-
-interface S3ObjectsResponse {
-  bucket: string
-  prefix: string
-  delimiter: string
-  folders: string[]
-  files: S3File[]
-}
-
-interface S3ObjectDetail {
-  bucket: string
-  key: string
-  size: number
-  content_type: string
-  content_encoding: string | null
-  etag: string
-  last_modified: string
-  version_id: string | null
-  metadata: Record<string, string>
-  preserved_headers: Record<string, string>
-  tags: Record<string, string>
-}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'

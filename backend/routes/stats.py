@@ -1,9 +1,12 @@
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fastapi import APIRouter
 
 from backend.aws_client import get_client
+
+logger = logging.getLogger(__name__)
 from backend.cache import cache
 from backend.config import STACKPORT_SERVICES
 
@@ -78,6 +81,11 @@ SERVICE_REGISTRY: dict[str, list[tuple[str, str, str, str]]] = {
 _start_time = time.time()
 
 
+@router.get("/health")
+def health():
+    return {"status": "ok", "uptime_seconds": round(time.time() - _start_time, 1)}
+
+
 # Some APIs require extra parameters to call
 _METHOD_KWARGS: dict[tuple[str, str], dict] = {
     ("cognito-idp", "list_user_pools"): {"MaxResults": 60},
@@ -113,9 +121,11 @@ def _probe_service(service: str) -> tuple[str, dict]:
                 resp = method(**kwargs)
                 resources[resource_type] = _count_items(resp, response_key)
             except Exception:
+                logger.debug("Failed to probe %s/%s", service, resource_type, exc_info=True)
                 resources[resource_type] = 0
         return service, {"status": "available", "resources": resources}
     except Exception:
+        logger.warning("Service %s unavailable", service, exc_info=True)
         return service, {"status": "unavailable", "resources": {}}
 
 

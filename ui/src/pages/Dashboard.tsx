@@ -1,12 +1,14 @@
-import { useCallback } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useFetch } from '../hooks/useFetch'
 import { fetchStats } from '../lib/api'
 import type { StatsResponse } from '../lib/types'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getServiceIcon } from '@/lib/service-icons'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
 
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600)
@@ -15,6 +17,14 @@ function formatUptime(seconds: number): string {
   if (h > 0) return `${h}h ${m}m`
   if (m > 0) return `${m}m ${s}s`
   return `${s}s`
+}
+
+function formatRelativeTime(date: Date): string {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (diff < 5) return 'just now'
+  if (diff < 60) return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  return `${Math.floor(diff / 3600)}h ago`
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -27,8 +37,40 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function Dashboard() {
   const statsFetcher = useCallback(() => fetchStats(), [])
-  const { data: stats } = useFetch<StatsResponse>(statsFetcher, 5000)
+  const { data: stats, error, refresh } = useFetch<StatsResponse>(statsFetcher, 5000)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [, setTick] = useState(0)
 
+  useEffect(() => {
+    if (stats) setLastUpdated(new Date())
+  }, [stats])
+
+  // Update relative time display every 10s
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 10000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Error state — backend unreachable
+  if (!stats && error) {
+    return (
+      <div className="p-6 flex items-center justify-center h-full">
+        <div className="text-center space-y-4">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+          <h2 className="text-lg font-semibold">Unable to connect</h2>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            {error}
+          </p>
+          <Button variant="outline" onClick={refresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Loading state
   if (!stats) {
     return (
       <div className="p-6 space-y-6">
@@ -50,11 +92,19 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold">Dashboard</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          {services.length} services | {stats.total_resources} resources | uptime {formatUptime(stats.uptime_seconds)}
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Dashboard</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {services.length} services | {stats.total_resources} resources | uptime {formatUptime(stats.uptime_seconds)}
+            {lastUpdated && (
+              <span className="ml-2">| updated {formatRelativeTime(lastUpdated)}</span>
+            )}
+          </p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={refresh} title="Refresh">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Service Grid */}
