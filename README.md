@@ -1,9 +1,11 @@
 # StackPort
 
-[![CI](https://github.com/DaviReisVieira/stackport/actions/workflows/ci.yml/badge.svg)](https://github.com/DaviReisVieira/stackport/actions/workflows/ci.yml)
-[![PyPI Version](https://img.shields.io/pypi/v/stackport)](https://pypi.org/project/stackport/)
-[![Docker Pulls](https://img.shields.io/docker/pulls/davireis/stackport)](https://hub.docker.com/r/davireis/stackport)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p>
+  <a href="https://github.com/DaviReisVieira/stackport/actions/workflows/ci.yml"><img src="https://github.com/DaviReisVieira/stackport/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/stackport/"><img src="https://img.shields.io/pypi/v/stackport" alt="PyPI Version"></a>
+  <a href="https://hub.docker.com/r/davireis/stackport"><img src="https://img.shields.io/docker/pulls/davireis/stackport" alt="Docker Pulls"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
 Universal AWS resource browser for local emulators. Built to work with [**MiniStack**](https://github.com/Nahuel990/ministack), and also compatible with LocalStack, Moto, or any AWS-compatible endpoint.
 
