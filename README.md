@@ -1,8 +1,8 @@
 # StackPort
 
 [![CI](https://github.com/DaviReisVieira/stackport/actions/workflows/ci.yml/badge.svg)](https://github.com/DaviReisVieira/stackport/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/stackport)](https://pypi.org/project/stackport/)
-[![Docker](https://img.shields.io/docker/pulls/davireis/stackport)](https://hub.docker.com/r/davireis/stackport)
+[![PyPI Version](https://img.shields.io/pypi/v/stackport)](https://pypi.org/project/stackport/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/davireis/stackport)](https://hub.docker.com/r/davireis/stackport)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Universal AWS resource browser for local emulators. Built to work with [**MiniStack**](https://github.com/Nahuel990/ministack), and also compatible with LocalStack, Moto, or any AWS-compatible endpoint.
