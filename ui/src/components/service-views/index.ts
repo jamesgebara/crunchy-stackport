@@ -5,7 +5,7 @@
  * 1. Create `src/components/service-views/MyServiceBrowser.tsx`
  *    - Export a default or named component with no required props
  *    - Use dedicated API endpoints from `src/lib/api.ts`
- * 2. Add the corresponding API endpoint in `ministack/ui/api.py`
+ * 2. Add the corresponding API endpoint in `backend/routes/`
  * 3. Register it here by adding to SERVICE_VIEWS
  */
 import type { ComponentType } from 'react'
