@@ -5,7 +5,7 @@
 [![Docker](https://img.shields.io/docker/pulls/davireis/stackport)](https://hub.docker.com/r/davireis/stackport)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Universal AWS resource browser for local emulators. Works with **LocalStack**, **MiniStack**, **Moto**, or any AWS-compatible endpoint.
+Universal AWS resource browser for local emulators. Built to work with [**MiniStack**](https://github.com/Nahuel990/ministack), and also compatible with LocalStack, Moto, or any AWS-compatible endpoint.
 
 <!-- TODO: Add screenshot here -->
 <!-- ![StackPort Dashboard](docs/screenshot.png) -->
@@ -16,24 +16,23 @@ Universal AWS resource browser for local emulators. Works with **LocalStack**, *
 - S3 file browser with folder navigation, search, pagination, and download
 - Dashboard with service health, resource counts, and auto-refresh
 - Single Docker image, zero AWS dependencies
+- Works out of the box with MiniStack's default port (4566)
 
 ## Quick Start
 
-### pip
+### With MiniStack (recommended)
 
 ```bash
+# Start MiniStack
+pip install ministack && ministack
+
+# Start StackPort
 pip install stackport
-AWS_ENDPOINT_URL=http://localhost:4566 stackport
+stackport
 # Open http://localhost:8080
 ```
 
-### Docker
-
-```bash
-docker run -p 8080:8080 -e AWS_ENDPOINT_URL=http://host.docker.internal:4566 davireis/stackport
-```
-
-### Docker Compose
+### Docker Compose (MiniStack + StackPort)
 
 ```bash
 curl -O https://raw.githubusercontent.com/DaviReisVieira/stackport/main/docker-compose.yml
@@ -41,11 +40,32 @@ docker compose up -d
 # Open http://localhost:8080
 ```
 
+### Docker (standalone)
+
+```bash
+docker run -p 8080:8080 -e AWS_ENDPOINT_URL=http://host.docker.internal:4566 davireis/stackport
+```
+
+### Other emulators
+
+StackPort works with any AWS-compatible endpoint — just set `AWS_ENDPOINT_URL`:
+
+```bash
+# LocalStack
+AWS_ENDPOINT_URL=http://localhost:4566 stackport
+
+# Moto
+AWS_ENDPOINT_URL=http://localhost:5000 stackport
+
+# Any custom endpoint
+AWS_ENDPOINT_URL=http://my-emulator:4566 stackport
+```
+
 ## Configuration
 
 | Variable | Default | Description |
 |---|---|---|
-| `AWS_ENDPOINT_URL` | `http://localhost:4566` | Target AWS endpoint |
+| `AWS_ENDPOINT_URL` | `http://localhost:4566` | Target AWS endpoint (MiniStack default) |
 | `AWS_REGION` | `us-east-1` | AWS region |
 | `AWS_ACCESS_KEY_ID` | `test` | AWS access key |
 | `AWS_SECRET_ACCESS_KEY` | `test` | AWS secret key |

@@ -1,12 +1,12 @@
 [project]
 name = "stackport"
-version = "0.1.0"
+version = "0.1.1"
 description = "Universal AWS resource browser for local emulators"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [{name = "Davi Reis Vieira"}]
-keywords = ["aws", "localstack", "s3", "browser", "devtools", "emulator"]
+keywords = ["aws", "ministack", "localstack", "browser", "devtools", "emulator"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: FastAPI",
