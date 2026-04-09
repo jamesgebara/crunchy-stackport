@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Breadcrumb, createHomeSegment } from '@/components/Breadcrumb'
 import {
   fetchIAMUsers,
   fetchIAMUserDetail,
@@ -723,15 +725,54 @@ export function IAMBrowser() {
   const { data: groupsData, loading: groupsLoading } = useFetch<{ groups: IAMGroup[] }>(groupsFetcher, 10000)
   const { data: policiesData, loading: policiesLoading } = useFetch<{ policies: IAMPolicy[] }>(policiesFetcher, 10000)
 
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Read selected entity from URL params
+  const entityType = searchParams.get('type') // 'user' | 'role' | 'group' | 'policy'
+  const entityName = searchParams.get('name')
+
+  const selectedUser = entityType === 'user' ? entityName : null
+  const selectedRole = entityType === 'role' ? entityName : null
+  const selectedGroup = entityType === 'group' ? entityName : null
+  const selectedPolicy = entityType === 'policy' ? entityName : null
+
+  // Helpers to update URL params
+  const setSelectedUser = (user: string | null) => {
+    if (user === null) {
+      setSearchParams({})
+    } else {
+      setSearchParams({ type: 'user', name: user })
+    }
+  }
+
+  const setSelectedRole = (role: string | null) => {
+    if (role === null) {
+      setSearchParams({})
+    } else {
+      setSearchParams({ type: 'role', name: role })
+    }
+  }
+
+  const setSelectedGroup = (group: string | null) => {
+    if (group === null) {
+      setSearchParams({})
+    } else {
+      setSearchParams({ type: 'group', name: group })
+    }
+  }
+
+  const setSelectedPolicy = (policy: string | null) => {
+    if (policy === null) {
+      setSearchParams({})
+    } else {
+      setSearchParams({ type: 'policy', name: policy })
+    }
+  }
+
   const [userSearch, setUserSearch] = useState('')
   const [roleSearch, setRoleSearch] = useState('')
   const [groupSearch, setGroupSearch] = useState('')
   const [policySearch, setPolicySearch] = useState('')
-
-  const [selectedUser, setSelectedUser] = useState<string | null>(null)
-  const [selectedRole, setSelectedRole] = useState<string | null>(null)
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
-  const [selectedPolicy, setSelectedPolicy] = useState<string | null>(null)
 
   const filteredUsers = useMemo(() => {
     if (!usersData?.users) return []
@@ -771,6 +812,7 @@ export function IAMBrowser() {
 
   return (
     <div className="space-y-6 p-6">
+      <Breadcrumb segments={[createHomeSegment(), { label: 'IAM', icon: Shield }]} />
       <div>
         <h2 className="text-2xl font-bold flex items-center gap-2">
           <Shield className="h-6 w-6" />

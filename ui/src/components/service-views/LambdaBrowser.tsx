@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Breadcrumb, createHomeSegment } from '@/components/Breadcrumb'
 import {
   fetchLambdaFunctions,
   fetchLambdaFunction,
@@ -33,7 +35,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import {
   Zap,
-  ArrowLeft,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -331,13 +332,25 @@ function InvokeSheet({
 }
 
 export function LambdaBrowser() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const functionsFetcher = useCallback(() => fetchLambdaFunctions(), [])
   const { data: functionsData, loading: functionsLoading } = useFetch<{ functions: LambdaFunction[] }>(
     functionsFetcher,
     10000
   )
 
-  const [selectedFunction, setSelectedFunction] = useState<string | null>(null)
+  // Read selected function from URL params
+  const selectedFunction = searchParams.get('function')
+
+  // Helper to update URL params
+  const setSelectedFunction = (func: string | null) => {
+    if (func === null) {
+      setSearchParams({})
+    } else {
+      setSearchParams({ function: func })
+    }
+  }
+
   const [functionDetail, setFunctionDetail] = useState<LambdaFunctionDetail | null>(null)
   const [eventSources, setEventSources] = useState<LambdaEventSourceMapping[]>([])
   const [aliases, setAliases] = useState<LambdaAlias[]>([])
@@ -415,14 +428,11 @@ export function LambdaBrowser() {
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedFunction(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Functions
-          </Button>
-          <Separator orientation="vertical" className="h-4" />
-          <span className="text-sm text-muted-foreground">{config.FunctionName}</span>
-        </div>
+        <Breadcrumb segments={[
+          createHomeSegment(),
+          { label: 'Lambda', href: '/resources/lambda', icon: Zap },
+          { label: config.FunctionName },
+        ]} />
 
         <div className="flex items-start justify-between">
           <div>
@@ -726,6 +736,7 @@ export function LambdaBrowser() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb segments={[createHomeSegment(), { label: 'Lambda', icon: Zap }]} />
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
