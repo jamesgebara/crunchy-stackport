@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect } from 'react'
 import { useFetch } from '../hooks/useFetch'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { fetchStats } from '../lib/api'
 import type { StatsResponse } from '../lib/types'
 import { Link } from 'react-router-dom'
@@ -40,6 +41,11 @@ export default function Dashboard() {
   const { data: stats, error, refresh } = useFetch<StatsResponse>(statsFetcher, 5000)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [, setTick] = useState(0)
+
+  // Page-level keyboard shortcuts
+  useKeyboardShortcuts([
+    { key: 'r', handler: () => refresh() },
+  ])
 
   useEffect(() => {
     if (stats) setLastUpdated(new Date())
