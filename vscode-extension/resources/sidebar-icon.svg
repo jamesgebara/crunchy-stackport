@@ -1,0 +1,16 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Server stack (simplified) -->
+  <rect x="2" y="3" width="11" height="4" rx="1" stroke="#C5C5C5" stroke-width="1.4"/>
+  <circle cx="4.5" cy="5" r="0.7" fill="#C5C5C5"/>
+  <rect x="2" y="9" width="11" height="4" rx="1" stroke="#C5C5C5" stroke-width="1.4"/>
+  <circle cx="4.5" cy="11" r="0.7" fill="#C5C5C5"/>
+
+  <!-- Magnifying glass -->
+  <circle cx="16" cy="12" r="5" stroke="#C5C5C5" stroke-width="1.4"/>
+  <line x1="19.5" y1="15.5" x2="22" y2="18" stroke="#C5C5C5" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Cube inside magnifying glass -->
+  <path d="M16 9L18.5 10.3V13L16 14.3L13.5 13V10.3L16 9Z" stroke="#C5C5C5" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M16 9V14.3" stroke="#C5C5C5" stroke-width="0.8"/>
+  <path d="M13.5 10.3L16 11.6L18.5 10.3" stroke="#C5C5C5" stroke-width="0.8" stroke-linejoin="round"/>
+</svg>
