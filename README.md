@@ -18,13 +18,13 @@
 ## Screenshots
 
 **Dashboard** — Service overview with resource counts and health status
-![StackPort Dashboard](docs/images/dashboard.jpeg)
+![StackPort Dashboard](docs/images/dashboard.jpeg?v=1)
 
 **DynamoDB Browser** — Generic resource table with search, pagination, and detail view
-![DynamoDB Resources](docs/images/dynamo.jpeg)
+![DynamoDB Resources](docs/images/dynamo.jpeg?v=1)
 
 **S3 Browser** — File browser with folder navigation and object preview
-![S3 Browser](docs/images/s3.jpeg)
+![S3 Browser](docs/images/s3.jpeg?v=1)
 
 ## Features
 
