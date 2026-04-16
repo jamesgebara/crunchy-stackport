@@ -118,6 +118,42 @@ export async function queryDynamoDBTable(name: string, request: DynamoDBQueryReq
   return res.json()
 }
 
+async function parseError(res: Response): Promise<string> {
+  try {
+    const body = await res.json()
+    if (typeof body?.detail === 'string') return body.detail
+  } catch {
+    /* ignore */
+  }
+  return `${res.status}: ${res.statusText}`
+}
+
+export async function putDynamoDBItem(
+  name: string,
+  item: Record<string, unknown>
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/dynamodb/tables/${encodeURIComponent(name)}/items`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
+export async function deleteDynamoDBItem(
+  name: string,
+  key: Record<string, unknown>
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/dynamodb/tables/${encodeURIComponent(name)}/items`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
 export async function fetchLambdaFunctions(): Promise<{ functions: LambdaFunction[] }> {
   return fetchJSON<{ functions: LambdaFunction[] }>(`${API_BASE}/lambda/functions`)
 }

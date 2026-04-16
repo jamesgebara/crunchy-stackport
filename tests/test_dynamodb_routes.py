@@ -223,6 +223,78 @@ class TestQueryTable:
         assert data["count"] == 1
 
     @patch("backend.routes.dynamodb.get_client")
+    def test_put_item(self, mock_get_client):
+        mock_ddb = MagicMock()
+        mock_get_client.return_value = mock_ddb
+        mock_ddb.describe_table.return_value = {
+            "Table": {
+                "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+            }
+        }
+        mock_ddb.put_item.return_value = {}
+
+        resp = client.put(
+            "/api/dynamodb/tables/users/items",
+            json={"item": {"pk": {"S": "user1"}, "name": {"S": "Alice"}}},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        call_kwargs = mock_ddb.put_item.call_args[1]
+        assert call_kwargs["TableName"] == "users"
+        assert call_kwargs["Item"]["pk"]["S"] == "user1"
+
+    @patch("backend.routes.dynamodb.get_client")
+    def test_put_item_missing_key_attribute(self, mock_get_client):
+        mock_ddb = MagicMock()
+        mock_get_client.return_value = mock_ddb
+        mock_ddb.describe_table.return_value = {
+            "Table": {
+                "KeySchema": [
+                    {"AttributeName": "pk", "KeyType": "HASH"},
+                    {"AttributeName": "sk", "KeyType": "RANGE"},
+                ],
+            }
+        }
+
+        resp = client.put(
+            "/api/dynamodb/tables/users/items",
+            json={"item": {"pk": {"S": "user1"}}},
+        )
+        assert resp.status_code == 400
+        assert "sk" in resp.json()["detail"]
+        mock_ddb.put_item.assert_not_called()
+
+    @patch("backend.routes.dynamodb.get_client")
+    def test_delete_item(self, mock_get_client):
+        mock_ddb = MagicMock()
+        mock_get_client.return_value = mock_ddb
+        mock_ddb.delete_item.return_value = {}
+
+        resp = client.request(
+            "DELETE",
+            "/api/dynamodb/tables/users/items",
+            json={"key": {"pk": {"S": "user1"}}},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        call_kwargs = mock_ddb.delete_item.call_args[1]
+        assert call_kwargs["TableName"] == "users"
+        assert call_kwargs["Key"]["pk"]["S"] == "user1"
+
+    @patch("backend.routes.dynamodb.get_client")
+    def test_delete_item_requires_key(self, mock_get_client):
+        mock_ddb = MagicMock()
+        mock_get_client.return_value = mock_ddb
+
+        resp = client.request(
+            "DELETE",
+            "/api/dynamodb/tables/users/items",
+            json={"key": {}},
+        )
+        assert resp.status_code == 400
+        mock_ddb.delete_item.assert_not_called()
+
+    @patch("backend.routes.dynamodb.get_client")
     def test_query_with_begins_with(self, mock_get_client):
         mock_ddb = MagicMock()
         mock_get_client.return_value = mock_ddb

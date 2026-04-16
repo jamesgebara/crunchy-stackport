@@ -1,5 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { fetchDynamoDBTables, fetchDynamoDBTable, fetchDynamoDBItems, queryDynamoDBTable } from '@/lib/api'
+import {
+  fetchDynamoDBTables,
+  fetchDynamoDBTable,
+  fetchDynamoDBItems,
+  queryDynamoDBTable,
+  putDynamoDBItem,
+  deleteDynamoDBItem,
+} from '@/lib/api'
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -111,5 +118,51 @@ describe('queryDynamoDBTable', () => {
     await expect(
       queryDynamoDBTable('users', { partition_key_value: 'test' })
     ).rejects.toThrow('400')
+  })
+})
+
+describe('putDynamoDBItem', () => {
+  it('sends PUT with item wrapped in body', async () => {
+    mockOk({ success: true, message: 'Item saved' })
+    const item = { pk: { S: 'user1' }, name: { S: 'Alice' } }
+    await putDynamoDBItem('users', item)
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/dynamodb/tables/users/items',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(body).toEqual({ item })
+  })
+
+  it('throws with server detail on error', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: () => Promise.resolve({ detail: 'Missing key attribute: sk' }),
+    })
+    await expect(putDynamoDBItem('users', { pk: { S: 'x' } })).rejects.toThrow(
+      'Missing key attribute: sk'
+    )
+  })
+})
+
+describe('deleteDynamoDBItem', () => {
+  it('sends DELETE with key wrapped in body', async () => {
+    mockOk({ success: true, message: 'Item deleted' })
+    const key = { pk: { S: 'user1' } }
+    await deleteDynamoDBItem('users', key)
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/dynamodb/tables/users/items',
+      expect.objectContaining({
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(body).toEqual({ key })
   })
 })

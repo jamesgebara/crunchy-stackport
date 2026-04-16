@@ -5,6 +5,8 @@ import {
   fetchDynamoDBTable,
   fetchDynamoDBItems,
   queryDynamoDBTable,
+  putDynamoDBItem,
+  deleteDynamoDBItem,
 } from '@/lib/api'
 import { Breadcrumb, createHomeSegment } from '@/components/Breadcrumb'
 import type {
@@ -28,6 +30,15 @@ import { getServiceIcon } from '@/lib/service-icons'
 import { useFetch } from '@/hooks/useFetch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Database,
   Table as TableIcon,
@@ -39,6 +50,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Plus,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -178,6 +192,15 @@ export function DynamoDBBrowser() {
   const [querySortKey, setQuerySortKey] = useState('')
   const [querySortKeyOp, setQuerySortKeyOp] = useState('=')
 
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create')
+  const [editorJson, setEditorJson] = useState('')
+  const [editorOriginal, setEditorOriginal] = useState<DynamoDBItem | null>(null)
+  const [editorError, setEditorError] = useState<string | null>(null)
+  const [editorSaving, setEditorSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<DynamoDBItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   useEffect(() => {
     if (!selectedTable) {
       setTableDetail(null)
@@ -253,6 +276,112 @@ export function DynamoDBBrowser() {
 
   const openItem = (item: DynamoDBItem) => {
     setItemDetail(item)
+  }
+
+  const extractKey = (item: DynamoDBItem): DynamoDBItem | null => {
+    if (!tableDetail) return null
+    const key: DynamoDBItem = {}
+    if (tableDetail.partition_key && item[tableDetail.partition_key] !== undefined) {
+      key[tableDetail.partition_key] = item[tableDetail.partition_key]
+    } else {
+      return null
+    }
+    if (tableDetail.sort_key) {
+      if (item[tableDetail.sort_key] === undefined) return null
+      key[tableDetail.sort_key] = item[tableDetail.sort_key]
+    }
+    return key
+  }
+
+  const buildTemplateItem = (): Record<string, unknown> => {
+    const template: Record<string, unknown> = {}
+    if (tableDetail?.partition_key) {
+      const type = tableDetail.partition_key_type || 'S'
+      template[tableDetail.partition_key] = { [type]: '' }
+    }
+    if (tableDetail?.sort_key) {
+      const type = tableDetail.sort_key_type || 'S'
+      template[tableDetail.sort_key] = { [type]: '' }
+    }
+    return template
+  }
+
+  const openCreateEditor = () => {
+    setEditorMode('create')
+    setEditorOriginal(null)
+    setEditorJson(JSON.stringify(buildTemplateItem(), null, 2))
+    setEditorError(null)
+    setEditorOpen(true)
+  }
+
+  const openEditEditor = (item: DynamoDBItem) => {
+    setEditorMode('edit')
+    setEditorOriginal(item)
+    setEditorJson(JSON.stringify(item, null, 2))
+    setEditorError(null)
+    setEditorOpen(true)
+  }
+
+  const saveEditor = async () => {
+    if (!selectedTable) return
+    let parsed: Record<string, unknown>
+    try {
+      parsed = JSON.parse(editorJson)
+    } catch (e) {
+      setEditorError(e instanceof Error ? e.message : 'Invalid JSON')
+      return
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      setEditorError('Item must be a JSON object')
+      return
+    }
+
+    setEditorSaving(true)
+    try {
+      if (editorMode === 'edit' && editorOriginal) {
+        const originalKey = extractKey(editorOriginal)
+        if (originalKey) {
+          const keyChanged = Object.entries(originalKey).some(
+            ([k, v]) => JSON.stringify(parsed[k]) !== JSON.stringify(v)
+          )
+          if (keyChanged) {
+            await deleteDynamoDBItem(selectedTable, originalKey)
+          }
+        }
+      }
+      await putDynamoDBItem(selectedTable, parsed)
+      toast.success(editorMode === 'create' ? 'Item created' : 'Item updated')
+      setEditorOpen(false)
+      setItemDetail(null)
+      await loadItems()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to save item'
+      setEditorError(msg)
+      toast.error(msg)
+    } finally {
+      setEditorSaving(false)
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!selectedTable || !deleteTarget) return
+    const key = extractKey(deleteTarget)
+    if (!key) {
+      toast.error('Cannot determine primary key for this item')
+      return
+    }
+    setDeleting(true)
+    try {
+      await deleteDynamoDBItem(selectedTable, key)
+      toast.success('Item deleted')
+      setDeleteTarget(null)
+      setItemDetail(null)
+      await loadItems()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete item')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const tables = tablesData?.tables ?? []
@@ -454,11 +583,23 @@ export function DynamoDBBrowser() {
               )}
               {items.length > 0 && <ExportDropdown service="dynamodb" resourceType="items" data={items as unknown as Record<string, unknown>[]} />}
             </div>
-            {mode === 'scan' && (
-              <Button size="sm" onClick={loadItems} disabled={loadingItems} className="h-8">
-                Refresh
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={openCreateEditor}
+                disabled={!tableDetail}
+                className="h-8"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                New item
               </Button>
-            )}
+              {mode === 'scan' && (
+                <Button size="sm" onClick={loadItems} disabled={loadingItems} className="h-8">
+                  Refresh
+                </Button>
+              )}
+            </div>
           </div>
           {mode === 'query' && tableDetail && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
@@ -596,6 +737,21 @@ export function DynamoDBBrowser() {
                 <SheetDescription>DynamoDB item attributes</SheetDescription>
               </SheetHeader>
 
+              <div className="flex items-center gap-2 mt-4">
+                <Button size="sm" variant="outline" onClick={() => openEditEditor(itemDetail)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setDeleteTarget(itemDetail)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete
+                </Button>
+              </div>
+
               <div className="space-y-4 mt-4">
                 <div>
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -621,6 +777,81 @@ export function DynamoDBBrowser() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={editorOpen} onOpenChange={(open) => !editorSaving && setEditorOpen(open)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editorMode === 'create' ? 'Create item' : 'Edit item'}</DialogTitle>
+            <DialogDescription>
+              Item in DynamoDB attribute value format. Each attribute is an object with a type key
+              (S, N, BOOL, NULL, L, M, SS, NS) mapping to its value.
+              {tableDetail?.partition_key && (
+                <span className="block mt-1 text-xs">
+                  Required key: <code className="font-mono">{tableDetail.partition_key}</code>
+                  {tableDetail.sort_key && (
+                    <> + <code className="font-mono">{tableDetail.sort_key}</code></>
+                  )}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Textarea
+              value={editorJson}
+              onChange={(e) => {
+                setEditorJson(e.target.value)
+                setEditorError(null)
+              }}
+              className="font-mono text-xs min-h-[280px]"
+              spellCheck={false}
+              disabled={editorSaving}
+            />
+            {editorError && <p className="text-xs text-destructive">{editorError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={editorSaving}>
+              Cancel
+            </Button>
+            <Button onClick={saveEditor} disabled={editorSaving}>
+              {editorSaving ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !deleting && !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete item?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete the item from <code className="font-mono">{selectedTable}</code>.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && tableDetail && (
+            <div className="text-xs font-mono border rounded p-2 bg-muted/50 break-all">
+              {tableDetail.partition_key && (
+                <div>
+                  {tableDetail.partition_key}: {formatAttributeValue(deleteTarget[tableDetail.partition_key])}
+                </div>
+              )}
+              {tableDetail.sort_key && (
+                <div>
+                  {tableDetail.sort_key}: {formatAttributeValue(deleteTarget[tableDetail.sort_key])}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

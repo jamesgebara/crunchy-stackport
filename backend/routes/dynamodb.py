@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from backend.aws_client import get_client
@@ -216,3 +216,82 @@ def query_table(name: str, request: QueryRequest):
     except Exception as e:
         logger.error("Failed to query table %s: %s", name, e, exc_info=True)
         return {"error": str(e), "items": [], "count": 0}
+
+
+class PutItemRequest(BaseModel):
+    item: dict[str, Any]
+    condition_expression: str | None = None
+
+
+class DeleteItemRequest(BaseModel):
+    key: dict[str, Any]
+
+
+def _extract_key(table_schema: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
+    """Pull the primary key (partition + optional sort) out of a full item."""
+    key_schema = table_schema.get("KeySchema", [])
+    key_names = [k["AttributeName"] for k in key_schema]
+    missing = [n for n in key_names if n not in item]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Item is missing required key attribute(s): {', '.join(missing)}",
+        )
+    return {n: item[n] for n in key_names}
+
+
+@router.put("/tables/{name}/items")
+def put_item(name: str, request: PutItemRequest):
+    """Create or overwrite an item.
+
+    Body: `{"item": {"attr": {"S|N|BOOL|...": value}}}` using DynamoDB attribute
+    value format. Replaces any existing item with the same primary key.
+    """
+    dynamodb = get_client("dynamodb")
+
+    if not request.item:
+        raise HTTPException(status_code=400, detail="item is required")
+
+    try:
+        table_resp = dynamodb.describe_table(TableName=name)
+        _extract_key(table_resp["Table"], request.item)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to describe table %s: %s", name, e, exc_info=True)
+        raise HTTPException(status_code=404, detail=f"Table {name} not found")
+
+    put_kwargs: dict[str, Any] = {"TableName": name, "Item": request.item}
+    if request.condition_expression:
+        put_kwargs["ConditionExpression"] = request.condition_expression
+
+    try:
+        dynamodb.put_item(**put_kwargs)
+        cache.delete(f"dynamodb:item_count:{name}")
+        return {"success": True, "message": "Item saved"}
+    except dynamodb.exceptions.ConditionalCheckFailedException as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to put item in %s: %s", name, e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/tables/{name}/items")
+def delete_item(name: str, request: DeleteItemRequest):
+    """Delete an item by its primary key.
+
+    Body: `{"key": {"pk": {"S": "..."}, "sk": {"S": "..."}}}` — must contain all
+    primary key attributes in DynamoDB attribute value format.
+    """
+    dynamodb = get_client("dynamodb")
+
+    if not request.key:
+        raise HTTPException(status_code=400, detail="key is required")
+
+    try:
+        dynamodb.delete_item(TableName=name, Key=request.key)
+        cache.delete(f"dynamodb:item_count:{name}")
+        return {"success": True, "message": "Item deleted"}
+    except Exception as e:
+        logger.error("Failed to delete item from %s: %s", name, e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
