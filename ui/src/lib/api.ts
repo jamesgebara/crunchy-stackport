@@ -37,6 +37,8 @@ import type {
   EC2VPC,
   EC2KeyPair,
   EC2ActionResponse,
+  Secret,
+  SecretDetail,
   LogGroupsResponse,
   LogStreamsResponse,
   LogEventsResponse,
@@ -282,6 +284,14 @@ export async function fetchEC2VPCs(): Promise<{ vpcs: EC2VPC[] }> {
 
 export async function fetchEC2KeyPairs(): Promise<{ keyPairs: EC2KeyPair[] }> {
   return fetchJSON<{ keyPairs: EC2KeyPair[] }>(`${API_BASE}/ec2/key-pairs`)
+}
+
+export async function fetchSecrets(): Promise<{ secrets: Secret[] }> {
+  return fetchJSON<{ secrets: Secret[] }>(`${API_BASE}/secretsmanager/secrets`)
+}
+
+export async function fetchSecretDetail(secretId: string): Promise<SecretDetail> {
+  return fetchJSON<SecretDetail>(`${API_BASE}/secretsmanager/secrets/${encodeURIComponent(secretId)}`)
 }
 
 export async function fetchLogGroups(prefix = '', nextToken = ''): Promise<LogGroupsResponse> {

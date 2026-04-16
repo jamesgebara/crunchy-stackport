@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import LOG_LEVEL, STACKPORT_PORT
-from backend.routes import dynamodb, ec2, iam, lambda_svc, logs, resources, s3, sqs, stats
+from backend.routes import dynamodb, ec2, iam, lambda_svc, logs, resources, s3, secretsmanager, sqs, stats
 
 
 class HealthcheckFilter(logging.Filter):
@@ -47,6 +47,7 @@ app.include_router(sqs.router, prefix="/api/sqs", tags=["sqs"])
 app.include_router(iam.router, prefix="/api/iam", tags=["iam"])
 app.include_router(ec2.router, prefix="/api/ec2", tags=["ec2"])
 app.include_router(logs.router, prefix="/api/logs", tags=["logs"])
+app.include_router(secretsmanager.router, prefix="/api/secretsmanager", tags=["secretsmanager"])
 app.include_router(resources.router, prefix="/api")
 
 # Serve UI static files — mount assets under /assets, SPA fallback for everything else
