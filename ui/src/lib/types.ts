@@ -513,6 +513,31 @@ export interface EC2ActionResponse {
   message?: string
 }
 
+export interface Secret {
+  name: string
+  arn: string
+  description: string
+  createdDate: string | null
+  lastChangedDate: string | null
+  lastAccessedDate: string | null
+  rotationEnabled: boolean
+  tags: Record<string, string>
+}
+
+export interface SecretDetail extends Secret {
+  rotationRules: {
+    AutomaticallyAfterDays?: number
+    Duration?: string
+    ScheduleExpression?: string
+  } | null
+  rotationLambdaARN: string | null
+  deletedDate: string | null
+  versionId: string | null
+  versionStages: string[] | null
+  secretValue: string | null
+  secretBinary: string | null
+}
+
 export interface LogGroup {
   name: string
   arn: string
