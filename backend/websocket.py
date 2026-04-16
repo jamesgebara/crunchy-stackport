@@ -44,16 +44,30 @@ class ConnectionManager:
 manager = ConnectionManager()
 _last_services: dict | None = None
 _last_stats: dict | None = None
+_probe_trigger: asyncio.Event | None = None
+
+PROBE_INTERVAL_SECONDS = 60
+
+
+def request_probe() -> None:
+    """Wake the probe loop immediately. Safe to call from any coroutine."""
+    if _probe_trigger is not None:
+        _probe_trigger.set()
 
 
 async def probe_loop():
     """Background task: probe services and broadcast diffs to connected clients."""
-    global _last_services, _last_stats
+    global _last_services, _last_stats, _probe_trigger
+    _probe_trigger = asyncio.Event()
 
     while True:
-        await asyncio.sleep(2)
+        try:
+            await asyncio.wait_for(_probe_trigger.wait(), timeout=PROBE_INTERVAL_SECONDS)
+        except asyncio.TimeoutError:
+            pass
+        _probe_trigger.clear()
 
-        # Skip probing if no clients are connected
+        # Skip probing if no clients are connected and this wasn't a manual trigger
         if not manager.active_connections:
             continue
 

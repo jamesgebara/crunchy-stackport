@@ -60,6 +60,11 @@ export async function fetchStats(): Promise<StatsResponse> {
   return fetchJSON<StatsResponse>(`${API_BASE}/stats`)
 }
 
+export async function refreshStats(): Promise<void> {
+  const res = await fetch(`${API_BASE}/stats/refresh`, { method: 'POST' })
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`)
+}
+
 export async function fetchResources(service: string, type?: string): Promise<ResourceListResponse> {
   const params = type ? `?type=${type}` : ''
   return fetchJSON<ResourceListResponse>(`${API_BASE}/resources/${service}${params}`)

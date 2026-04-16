@@ -3,7 +3,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 
 from backend.aws_client import get_client
 
@@ -171,3 +171,19 @@ def get_stats(endpoint_url: str = Depends(get_endpoint_url)):
     }
     cache.set(cache_key, response, ttl=5)
     return response
+
+
+@router.post("/stats/refresh", status_code=204)
+def refresh_stats(endpoint_url: str = Depends(get_endpoint_url)):
+    """Invalidate cached stats and wake the WebSocket probe loop immediately.
+
+    Used by the UI's manual refresh control. The next /api/stats call will
+    run a fresh probe, and WebSocket-subscribed clients will receive an
+    out-of-cycle stats broadcast within ~1s (if any are connected).
+    """
+    # Avoid circular import at module load: websocket imports from this module.
+    from backend.websocket import request_probe
+
+    cache.delete(f"{endpoint_url}:stats")
+    request_probe()
+    return Response(status_code=204)

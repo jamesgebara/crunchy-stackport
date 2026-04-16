@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { LayoutDashboard, FolderOpen, Keyboard, PanelLeftClose, PanelLeft, Info } from 'lucide-react'
+import { LayoutDashboard, FolderOpen, Keyboard, PanelLeftClose, PanelLeft, Info, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useTheme } from '@/hooks/useTheme'
+import { refreshStats } from '@/lib/api'
 import type { LucideIcon } from 'lucide-react'
 
 const NAV_ITEMS: { to: string; label: string; icon: LucideIcon }[] = [
@@ -20,12 +22,26 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const { setTheme, theme } = useTheme()
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed)
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark'
     setTheme(nextTheme)
+  }
+
+  const handleRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await refreshStats()
+      toast.success('Refreshed from emulator')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Refresh failed')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   // Global keyboard shortcuts (available on all pages)
@@ -84,6 +100,18 @@ export default function Layout({ children }: { children: ReactNode }) {
               </NavLink>
             </li>
           ))}
+          <li>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title={sidebarCollapsed ? 'Refresh from emulator' : undefined}
+              className={`w-full flex items-center gap-3 ${sidebarCollapsed ? 'justify-center px-4' : 'px-4'} py-2.5 text-sm transition-colors text-muted-foreground hover:text-foreground hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <RefreshCw className={`h-4 w-4 flex-shrink-0 ${refreshing ? 'animate-spin' : ''}`} />
+              {!sidebarCollapsed && 'Refresh'}
+            </button>
+          </li>
         </ul>
         <Separator />
         <div className={`px-4 py-2.5 flex items-center ${sidebarCollapsed ? 'flex-col gap-2' : 'justify-between'}`}>
